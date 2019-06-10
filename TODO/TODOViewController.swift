@@ -12,10 +12,15 @@ class TODOViewController: UITableViewController {
     
     var itemsArray = ["购买水杯","吃药","修改密码"]
     
+    let defaults = UserDefaults.standard
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        //如果本地有数据就从本地读取
+        if let items = defaults.array(forKey: "TODOListArray") as? [String]{
+            itemsArray = items
+        }
     }
     
     // MARK: - IBAction
@@ -32,6 +37,11 @@ class TODOViewController: UITableViewController {
         let action = UIAlertAction(title: "添加项目", style:.default) { (action) in
             //用户单击添加项目按钮以后执行的代码
             self.itemsArray.append(textField.text!)
+            
+            //会将数据保存在Library/Preferences中
+            self.defaults.set(self.itemsArray, forKey: "TODOListArray")
+            
+            //刷新界面
             self.tableView.reloadData()
         }
         
