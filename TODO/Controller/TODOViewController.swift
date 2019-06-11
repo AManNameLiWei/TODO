@@ -170,6 +170,34 @@ class TODOViewController: UITableViewController {
         
     }
     
+    
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { (UIContextualAction, UIView, (Bool) -> Void) in
+            //修改数据源
+            self.context.delete(self.itemsArray[indexPath.row])
+            self.itemsArray.remove(at: indexPath.row)
+            self.saveItems()
+
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            tableView.reloadData()
+        }
+        
+        let sharedAction = UIContextualAction(style: .normal, title: "分享") { (UIContextualAction, UIView, (Bool) -> Void) in
+            let text = "这是分享功能"
+            
+            let ac = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+            
+            self.present(ac, animated: true, completion: nil)
+        }
+        
+        sharedAction.backgroundColor = UIColor.green
+        
+        let actinos = UISwipeActionsConfiguration.init(actions: [deleteAction,sharedAction])
+        
+        return actinos
+        
+    }
+    
 }
 
 extension TODOViewController: UISearchBarDelegate{
