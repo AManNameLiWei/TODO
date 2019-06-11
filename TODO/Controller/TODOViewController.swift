@@ -7,21 +7,24 @@
 //
 
 import UIKit
+import CoreData
 
 class TODOViewController: UITableViewController {
     
     var itemsArray = [Item]()
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
-
+    var selectedCategory: Category? {
+        didSet{
+            loadItems()
+        }
+    }
     
-//    let defaults = UserDefaults.standard
+
+    //获取临时区域
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print(dataFilePath!)
-        //从本地读取数据
-        loadItems()
         
     }
     
@@ -38,16 +41,20 @@ class TODOViewController: UITableViewController {
         //创建动作
         let action = UIAlertAction(title: "添加项目", style:.default) { (action) in
             //用户单击添加项目按钮以后执行的代码
-            let newItem = Item()
+            
+            //初始化item类
+            let newItem = Item(context: self.context)
+            
             newItem.title = textField.text!
+            newItem.done = false //默认值为false
+            
+            //为新建的item对象parentCategory属性赋值
+            newItem.parentCategory = self.selectedCategory
             
             self.itemsArray.append(newItem)
             
             //写入磁盘
             self.saveItems()
-            
-            //会将数据保存在Library/Preferences中
-//            self.defaults.set(self.itemsArray, forKey: "TODOListArray")
             
             //刷新界面
             self.tableView.reloadData()
@@ -64,37 +71,44 @@ class TODOViewController: UITableViewController {
         
     }
     
+    
+    
+    
     // MARK: - 自定义方法
     func saveItems(){
-        //实例化编码对象
-        let encoder = PropertyListEncoder()
         
-        //对数组进行编码 -> Data
         do {
-            let data = try encoder.encode(self.itemsArray)
+            try context.save()
             
-            try data.write(to: self.dataFilePath!)
         }catch{
-            print("编码错误：\(error)")
+            print("保存context错误：\(error)")
         }
     }
     
-    func loadItems(){
+    //在参数内部赋默认值，外部调用方法时就不用给参数了
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil ){
         
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            //实例化解码对象
-            let decoder = PropertyListDecoder()
-            
-            //对data进行解码
-            do{
-                itemsArray = try decoder.decode([Item].self, from: data)
-            }catch{
-                print("解码items错误")
-            }
+        //创建NSFetchRequest变量  自定义搜索请求
+//        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", self.selectedCategory!.name!)
+        
+        if let addtionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate,addtionalPredicate])
+        }else{
+            request.predicate = categoryPredicate
         }
         
         
+        do {
+            itemsArray = try context.fetch(request)
+        } catch {
+            print("从context获取数据错误:\(error)")
+        }
+        
+        tableView.reloadData()
     }
+ 
     
     
     // MARK: - Table view data source
@@ -131,6 +145,20 @@ class TODOViewController: UITableViewController {
         
         itemsArray[indexPath.row].done = !itemsArray[indexPath.row].done
         
+        
+        //修改数据
+        
+        //单击某个事项时候会加上已完成字样 在save之前不会影响内部已存数据
+//        let title = itemsArray[indexPath.row].title
+//        itemsArray[indexPath.row].setValue(title! + "-(已完成)", forKey: "title")
+        
+        //删除数据
+        
+//        context.delete(itemsArray[indexPath.row])
+//        itemsArray.remove(at: indexPath.row)
+        
+        
+        
         //点击之后重新编码写入磁盘
         saveItems()
         
@@ -142,5 +170,37 @@ class TODOViewController: UITableViewController {
         
     }
     
+}
+
+extension TODOViewController: UISearchBarDelegate{
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        
+        //搜索条件
+        request.predicate = NSPredicate(format: "title CONTAINS[c] %@", searchBar.text!)
+        
+        //搜索结果排序
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        //执行搜索
+        loadItems(with: request, predicate: request.predicate)
+        
+//        print(searchBar.text!)
+    }
+    
+    //搜索结束，关闭搜索
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            //在后台线程运行
+            loadItems()
+            
+            //在主线程中取消第一响应者，键盘消失
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+
+            }
+        }
+    }
 }
 
