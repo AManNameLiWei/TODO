@@ -10,17 +10,19 @@ import UIKit
 
 class TODOViewController: UITableViewController {
     
-    var itemsArray = ["购买水杯","吃药","修改密码"]
+    var itemsArray = [Item]()
     
-    let defaults = UserDefaults.standard
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+
+    
+//    let defaults = UserDefaults.standard
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        print(dataFilePath!)
+        //从本地读取数据
+        loadItems()
         
-        //如果本地有数据就从本地读取
-        if let items = defaults.array(forKey: "TODOListArray") as? [String]{
-            itemsArray = items
-        }
     }
     
     // MARK: - IBAction
@@ -36,10 +38,16 @@ class TODOViewController: UITableViewController {
         //创建动作
         let action = UIAlertAction(title: "添加项目", style:.default) { (action) in
             //用户单击添加项目按钮以后执行的代码
-            self.itemsArray.append(textField.text!)
+            let newItem = Item()
+            newItem.title = textField.text!
+            
+            self.itemsArray.append(newItem)
+            
+            //写入磁盘
+            self.saveItems()
             
             //会将数据保存在Library/Preferences中
-            self.defaults.set(self.itemsArray, forKey: "TODOListArray")
+//            self.defaults.set(self.itemsArray, forKey: "TODOListArray")
             
             //刷新界面
             self.tableView.reloadData()
@@ -56,6 +64,38 @@ class TODOViewController: UITableViewController {
         
     }
     
+    // MARK: - 自定义方法
+    func saveItems(){
+        //实例化编码对象
+        let encoder = PropertyListEncoder()
+        
+        //对数组进行编码 -> Data
+        do {
+            let data = try encoder.encode(self.itemsArray)
+            
+            try data.write(to: self.dataFilePath!)
+        }catch{
+            print("编码错误：\(error)")
+        }
+    }
+    
+    func loadItems(){
+        
+        if let data = try? Data(contentsOf: dataFilePath!) {
+            //实例化解码对象
+            let decoder = PropertyListDecoder()
+            
+            //对data进行解码
+            do{
+                itemsArray = try decoder.decode([Item].self, from: data)
+            }catch{
+                print("解码items错误")
+            }
+        }
+        
+        
+    }
+    
     
     // MARK: - Table view data source
     
@@ -67,19 +107,36 @@ class TODOViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cellID", for: indexPath)
-        cell.textLabel?.text = itemsArray[indexPath.row]
+        
+        cell.textLabel?.text = itemsArray[indexPath.row].title
+        
+        if itemsArray[indexPath.row].done == false {
+            cell.accessoryType = .none
+        }else{
+            cell.accessoryType = .checkmark
+        }
         
         return cell
     }
     
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print(indexPath.row)
+        
         if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
             tableView.cellForRow(at: indexPath)?.accessoryType = .none
+            
         }else{
             tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
         }
+        
+        itemsArray[indexPath.row].done = !itemsArray[indexPath.row].done
+        
+        //点击之后重新编码写入磁盘
+        saveItems()
+        
+        tableView.beginUpdates()
+        tableView.reloadRows(at: [indexPath], with: .none)
+        tableView.endUpdates()
         
         tableView.deselectRow(at: indexPath, animated: true)
         

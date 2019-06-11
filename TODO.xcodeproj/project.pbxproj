@@ -12,6 +12,7 @@
 		D07F9BCB22AE47B3005A4FAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D07F9BCA22AE47B3005A4FAA /* Assets.xcassets */; };
 		D07F9BCE22AE47B3005A4FAA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D07F9BCC22AE47B3005A4FAA /* LaunchScreen.storyboard */; };
 		D07F9BD622AE4827005A4FAA /* TODOViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D07F9BD522AE4827005A4FAA /* TODOViewController.swift */; };
+		D07F9BD922AE5A83005A4FAA /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D07F9BD822AE5A83005A4FAA /* Item.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +23,7 @@
 		D07F9BCD22AE47B3005A4FAA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		D07F9BCF22AE47B3005A4FAA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D07F9BD522AE4827005A4FAA /* TODOViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TODOViewController.swift; sourceTree = "<group>"; };
+		D07F9BD822AE5A83005A4FAA /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,12 +58,21 @@
 			children = (
 				D07F9BC322AE47B0005A4FAA /* AppDelegate.swift */,
 				D07F9BD522AE4827005A4FAA /* TODOViewController.swift */,
+				D07F9BD722AE5A70005A4FAA /* Model */,
 				D07F9BC722AE47B0005A4FAA /* Main.storyboard */,
 				D07F9BCA22AE47B3005A4FAA /* Assets.xcassets */,
 				D07F9BCC22AE47B3005A4FAA /* LaunchScreen.storyboard */,
 				D07F9BCF22AE47B3005A4FAA /* Info.plist */,
 			);
 			path = TODO;
+			sourceTree = "<group>";
+		};
+		D07F9BD722AE5A70005A4FAA /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				D07F9BD822AE5A83005A4FAA /* Item.swift */,
+			);
+			path = Model;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -136,6 +147,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D07F9BD622AE4827005A4FAA /* TODOViewController.swift in Sources */,
+				D07F9BD922AE5A83005A4FAA /* Item.swift in Sources */,
 				D07F9BC422AE47B0005A4FAA /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
