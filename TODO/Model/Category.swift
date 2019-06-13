@@ -12,6 +12,7 @@ import RealmSwift
 class Category: Object{
     //dynamic代表在应用运行时可以监控属性值变化
     @objc dynamic var name: String = ""
+    @objc dynamic var colour: String = ""
     
     //关联Item类，一对多的关系
     let items = List<Item>()

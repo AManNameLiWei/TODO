@@ -8,12 +8,15 @@
 
 import UIKit
 import RealmSwift
+import SwipeCellKit
+import ChameleonFramework
 
 class TODOViewController: UITableViewController {
     
     var todoItems: Results<Item>?
     let realm = try! Realm()
     
+    @IBOutlet weak var searchBar: UISearchBar!
     
     var selectedCategory: Category? {
         didSet{
@@ -25,6 +28,41 @@ class TODOViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        tableView.separatorStyle = .none
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        if let colourHex = selectedCategory?.colour {
+            
+            //设置控制器名称为类别名称
+            title = selectedCategory!.name
+            
+            guard let navBar = navigationController?.navigationBar else{
+                fatalError("导航栏不存在")
+            }
+            
+            if let navBarColor = UIColor(hexString: colourHex){
+                //设置导航栏背景颜色
+               navBar.barTintColor = navBarColor
+                //设置导航栏按钮文字颜色  对比色
+                navBar.tintColor = ContrastColorOf(navBarColor, returnFlat: true)
+                //设置导航栏标题颜色
+                navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor: ContrastColorOf(navBarColor, returnFlat: true)]
+                //设置搜索栏背景颜色
+                searchBar.barTintColor = navBarColor
+            }
+            
+        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        guard let originColor = UIColor(hexString: "#FFCB73") else {
+            fatalError()
+        }
+        //控制器即将消失 颜色还原
+        navigationController?.navigationBar.barTintColor = originColor
+        navigationController?.navigationBar.tintColor = FlatWhite()
+        navigationController?.navigationBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor: FlatWhite()]
     }
     
     // MARK: - IBAction
@@ -58,6 +96,8 @@ class TODOViewController: UITableViewController {
             self.tableView.reloadData()
         }
         
+        let cancelAction = UIAlertAction(title: "取消", style: .cancel, handler: nil)
+        
         alert.addTextField { (alerttextField) in
             alerttextField.placeholder = "创建一个新项目"
             //让textField指向alertTextField，因为出了闭包，alertTextField不存在
@@ -65,6 +105,7 @@ class TODOViewController: UITableViewController {
         }
         
         alert.addAction(action)
+        alert.addAction(cancelAction)
         present(alert, animated: true, completion: nil)
         
     }
@@ -93,12 +134,24 @@ class TODOViewController: UITableViewController {
     
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cellID", for: indexPath)
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cellID", for: indexPath) as! SwipeTableViewCell
+        
+        cell.delegate = self
         
         
         if let item = todoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
             cell.accessoryType = item.done == true ? .checkmark : .none
+            
+            //设置背景颜色为事务类别颜色
+            //darken用来设置阴暗程度  0——1
+            if let colour = UIColor(hexString: self.selectedCategory!.colour)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(todoItems!.count)){
+                cell.backgroundColor = colour
+                
+                //根据背景颜色自动设定文本颜色  returnFlat用于确定是否平涂
+                cell.textLabel?.textColor = ContrastColorOf(colour, returnFlat: true)
+            }
+            
         }else{
             cell.textLabel?.text = "没有事项"
         }
@@ -134,6 +187,7 @@ class TODOViewController: UITableViewController {
             
         }
         
+        // MARK: - 系统自带滑动功能
         /*
          override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
          let deleteAction = UIContextualAction(style: .destructive, title: "删除") { (UIContextualAction, UIView, (Bool) -> Void) in
@@ -186,5 +240,32 @@ extension TODOViewController: UISearchBarDelegate{
                 
             }
         }
+    }
+}
+
+extension TODOViewController: SwipeTableViewCellDelegate{
+    func tableView(_ tableView: UITableView, editActionsForRowAt indexPath: IndexPath, for orientation: SwipeActionsOrientation) -> [SwipeAction]? {
+        guard orientation == .right else {
+            return nil
+        }
+        
+        let deleteAction = SwipeAction(style: .destructive, title: "删除") { (action, indexPath) in
+            if let itemForDelection = self.todoItems?[indexPath.row]{
+                do{
+                    try self.realm.write {
+                        self.realm.delete(itemForDelection)
+                    }
+                }catch{
+                    print("删除事项失败：\(error)")
+                }
+            }
+        }
+        return [deleteAction]
+    }
+    
+    func tableView(_ tableView: UITableView, editActionsOptionsForRowAt indexPath: IndexPath, for orientation: SwipeActionsOrientation) -> SwipeOptions {
+        var options = SwipeOptions()
+        options.expansionStyle = .destructive
+        return options
     }
 }
