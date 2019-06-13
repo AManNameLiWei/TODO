@@ -7,11 +7,13 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class TODOViewController: UITableViewController {
     
-    var itemsArray = [Item]()
+    var todoItems: Results<Item>?
+    let realm = try! Realm()
+    
     
     var selectedCategory: Category? {
         didSet{
@@ -19,9 +21,6 @@ class TODOViewController: UITableViewController {
         }
     }
     
-
-    //获取临时区域
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -42,19 +41,18 @@ class TODOViewController: UITableViewController {
         let action = UIAlertAction(title: "添加项目", style:.default) { (action) in
             //用户单击添加项目按钮以后执行的代码
             
-            //初始化item类
-            let newItem = Item(context: self.context)
-            
-            newItem.title = textField.text!
-            newItem.done = false //默认值为false
-            
-            //为新建的item对象parentCategory属性赋值
-            newItem.parentCategory = self.selectedCategory
-            
-            self.itemsArray.append(newItem)
-            
-            //写入磁盘
-            self.saveItems()
+            if let currentCategory = self.selectedCategory{
+                do {
+                    try self.realm.write {
+                        let newItem = Item()
+                        newItem.title = textField.text!
+                        newItem.date = Date() //Date()返回当前的时间
+                        currentCategory.items.append(newItem)
+                    }
+                }catch{
+                    print("保存Item错误")
+                }
+            }
             
             //刷新界面
             self.tableView.reloadData()
@@ -75,59 +73,34 @@ class TODOViewController: UITableViewController {
     
     
     // MARK: - 自定义方法
-    func saveItems(){
-        
-        do {
-            try context.save()
-            
-        }catch{
-            print("保存context错误：\(error)")
-        }
-    }
     
     //在参数内部赋默认值，外部调用方法时就不用给参数了
-    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil ){
+    func loadItems(){
         
-        //创建NSFetchRequest变量  自定义搜索请求
-//        let request: NSFetchRequest<Item> = Item.fetchRequest()
-        
-        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", self.selectedCategory!.name!)
-        
-        if let addtionalPredicate = predicate {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate,addtionalPredicate])
-        }else{
-            request.predicate = categoryPredicate
-        }
-        
-        
-        do {
-            itemsArray = try context.fetch(request)
-        } catch {
-            print("从context获取数据错误:\(error)")
-        }
+        todoItems = selectedCategory?.items.sorted(byKeyPath: "date", ascending: true)
         
         tableView.reloadData()
     }
- 
+    
     
     
     // MARK: - Table view data source
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        return itemsArray.count
+        return todoItems?.count ?? 1
     }
     
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cellID", for: indexPath)
         
-        cell.textLabel?.text = itemsArray[indexPath.row].title
         
-        if itemsArray[indexPath.row].done == false {
-            cell.accessoryType = .none
+        if let item = todoItems?[indexPath.row] {
+            cell.textLabel?.text = item.title
+            cell.accessoryType = item.done == true ? .checkmark : .none
         }else{
-            cell.accessoryType = .checkmark
+            cell.textLabel?.text = "没有事项"
         }
         
         return cell
@@ -143,78 +116,62 @@ class TODOViewController: UITableViewController {
             tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
         }
         
-        itemsArray[indexPath.row].done = !itemsArray[indexPath.row].done
-        
-        
-        //修改数据
-        
-        //单击某个事项时候会加上已完成字样 在save之前不会影响内部已存数据
-//        let title = itemsArray[indexPath.row].title
-//        itemsArray[indexPath.row].setValue(title! + "-(已完成)", forKey: "title")
-        
-        //删除数据
-        
-//        context.delete(itemsArray[indexPath.row])
-//        itemsArray.remove(at: indexPath.row)
-        
-        
-        
-        //点击之后重新编码写入磁盘
-        saveItems()
-        
-        tableView.beginUpdates()
-        tableView.reloadRows(at: [indexPath], with: .none)
-        tableView.endUpdates()
-        
-        tableView.deselectRow(at: indexPath, animated: true)
-        
-    }
-    
-    
-    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { (UIContextualAction, UIView, (Bool) -> Void) in
-            //修改数据源
-            self.context.delete(self.itemsArray[indexPath.row])
-            self.itemsArray.remove(at: indexPath.row)
-            self.saveItems()
-
-            tableView.deleteRows(at: [indexPath], with: .fade)
-            tableView.reloadData()
+        //解包后数据存在则改变状态写入数据库
+        if let item = todoItems?[indexPath.row] {
+            do {
+                try realm.write {
+                    item.done = !item.done
+                }
+            } catch{
+                print("保存完成状态失败")
+            }
+            
+            tableView.beginUpdates()
+            tableView.reloadRows(at: [indexPath], with: .none)
+            tableView.endUpdates()
+            
+            tableView.deselectRow(at: indexPath, animated: true)
+            
         }
         
-        let sharedAction = UIContextualAction(style: .normal, title: "分享") { (UIContextualAction, UIView, (Bool) -> Void) in
-            let text = "这是分享功能"
-            
-            let ac = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-            
-            self.present(ac, animated: true, completion: nil)
-        }
-        
-        sharedAction.backgroundColor = UIColor.green
-        
-        let actinos = UISwipeActionsConfiguration.init(actions: [deleteAction,sharedAction])
-        
-        return actinos
-        
+        /*
+         override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+         let deleteAction = UIContextualAction(style: .destructive, title: "删除") { (UIContextualAction, UIView, (Bool) -> Void) in
+         //修改数据源
+         self.context.delete(self.itemsArray[indexPath.row])
+         self.itemsArray.remove(at: indexPath.row)
+         self.saveItems()
+         
+         tableView.deleteRows(at: [indexPath], with: .fade)
+         tableView.reloadData()
+         }
+         
+         let sharedAction = UIContextualAction(style: .normal, title: "分享") { (UIContextualAction, UIView, (Bool) -> Void) in
+         let text = "这是分享功能"
+         
+         let ac = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+         
+         self.present(ac, animated: true, completion: nil)
+         }
+         
+         sharedAction.backgroundColor = UIColor.green
+         
+         let actinos = UISwipeActionsConfiguration.init(actions: [deleteAction,sharedAction])
+         
+         return actinos
+         
+         }
+         */
     }
-    
 }
+
 
 extension TODOViewController: UISearchBarDelegate{
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         
-        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        //根据文本框内容搜索，返回一个排序的搜索集
+        todoItems = todoItems?.filter("title CONTAINS[c] %@", searchBar.text!).sorted(byKeyPath: "date", ascending: false)
         
-        //搜索条件
-        request.predicate = NSPredicate(format: "title CONTAINS[c] %@", searchBar.text!)
-        
-        //搜索结果排序
-        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-        
-        //执行搜索
-        loadItems(with: request, predicate: request.predicate)
-        
-//        print(searchBar.text!)
     }
     
     //搜索结束，关闭搜索
@@ -226,9 +183,8 @@ extension TODOViewController: UISearchBarDelegate{
             //在主线程中取消第一响应者，键盘消失
             DispatchQueue.main.async {
                 searchBar.resignFirstResponder()
-
+                
             }
         }
     }
 }
-

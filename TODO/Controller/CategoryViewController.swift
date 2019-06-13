@@ -8,13 +8,12 @@
 
 import UIKit
 import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
 
-    var categories = [Category]()
-    
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    
+    var categories: Results<Category>?
+    let realm = try! Realm()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,12 +31,12 @@ class CategoryViewController: UITableViewController {
         let alert = UIAlertController(title: "添加新的类别", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "添加", style: .default) { (action) in
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             newCategory.name = textField.text!
             
-            self.categories.append(newCategory)
+//            self.categories.append(newCategory)
             
-            self.saveCategories()
+            self.saveCategories(category: newCategory)
         }
         
         alert.addTextField { (alertTextField) in
@@ -52,9 +51,11 @@ class CategoryViewController: UITableViewController {
     
     
     // MARK: - tableView数据维护
-    func saveCategories(){
+    func saveCategories(category: Category){
         do {
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
         } catch {
             print("存储错误：\(error)")
         }
@@ -63,26 +64,19 @@ class CategoryViewController: UITableViewController {
     }
     
     func loadCategories(){
-        let request: NSFetchRequest<Category> = Category.fetchRequest()
         
-        do {
-            categories = try context.fetch(request)
-        } catch {
-            print("载入Category错误:\(error)")
-        }
+        categories = realm.objects(Category.self)
         
         tableView.reloadData()
     }
-    
-    
     // MARK: - Delegate && DataSource
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+        return categories?.count ?? 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        cell.textLabel?.text = categories[indexPath.row].name
+        cell.textLabel?.text = categories?[indexPath.row].name ?? "没有任何类别"
         
         return cell
         
@@ -99,7 +93,7 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! TODOViewController
         if segue.identifier == "goToItems" {
             if let indexPath = tableView.indexPathForSelectedRow{
-                destinationVC.selectedCategory = categories[indexPath.row]
+                destinationVC.selectedCategory = categories?[indexPath.row]
             }
         }
         
